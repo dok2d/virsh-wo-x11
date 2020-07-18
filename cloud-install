@@ -64,6 +64,7 @@ v_hdd_add_gb=${v_hdd_add_gb:-60}
 
 v_user_pubkey_type=${v_user_pubkey/ssh-/}; v_user_pubkey_type=${v_user_pubkey_type%%\ *}; v_user_pubkey_type=${v_user_pubkey_type:-ed25519}
 nw_name_1=${nw_name_1:-default}
+nw_mac_1=${nw_mac_1:-$(tr -dc A-F0-9 < /dev/urandom | head -c 6 | sed -r 's/(..)/\1:/g;s/:$//;s/^/52:54:00:/')}
 v_timezone=${v_timezone:-Europe/Moscow}
 
 [ ! -f "${v_iso_path}" ] && wget ${v_net_link} -O ${v_iso_path}
@@ -79,6 +80,7 @@ for i in {1..9}; do
       fi
     fi
   fi
+  unset net mac ip
 done
 
 mkdir /var/lib/libvirt/images/${v_hostname}
