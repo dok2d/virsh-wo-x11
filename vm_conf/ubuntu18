@@ -1,0 +1,16 @@
+export v_hostname=ubuntu18
+export v_os=ubuntu18
+export v_worknet=
+export v_hdd_add_gb=
+export v_ram_mb=
+export v_cpu=4
+export v_timezone=
+export v_packages="nano tree git curl"
+
+
+export nw_name_1=test_nw
+export nw_ipaddr_1=192.168.141.218
+export nw_mac_1="52:54:00:2d:1e:18"
+
+export v_user=dok
+export v_user_pubkey="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP84h7RrIaaU8ExslQ6fpK2OfOjDza6h/4ZrXNE3fC9z"

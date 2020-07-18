@@ -1,0 +1,147 @@
+#!/bin/bash
+set -e
+
+[ -z "$@" ] && exit 0
+[ ! -f vm_conf/"$1" ] && exit 0
+
+function exit_installer {
+  for key in $( set | awk '/^nw_/ {print $1}'| cut -d"=" -f1 ); do unset $key ; done
+  for key in $( set | awk '/^v_/ {print $1}'| cut -d"=" -f1 ); do unset $key ; done
+  exit 0
+}
+
+source vm_conf/$1
+
+[ -z "${v_os}" ] && exit_installer
+[ -z "${v_hostname}" ] && exit_installer
+[ -d "/var/lib/libvirt/images/${v_hostname}" ] && exit_installer
+
+case ${v_os} in
+  centos7)
+    v_net_link="http://cloud.centos.org/centos/7/images/CentOS-7-x86_64-GenericCloud.qcow2"
+    v_packman="yum"
+    v_packman_del="remove"
+    v_os_variant="rhel7"
+    v_user=${v_user:-centos}
+  ;;
+  centos8)
+    v_net_link="https://cloud.centos.org/centos/8/x86_64/images/CentOS-8-GenericCloud-8.2.2004-20200611.2.x86_64.qcow2"
+    v_packman="dnf"
+    v_packman_del="remove"
+    v_os_variant="rhel7"
+    v_user=${v_user:-centos}
+    ;;
+  ubuntu16)
+    v_net_link="http://cloud-images.ubuntu.com/xenial/current/xenial-server-cloudimg-amd64-disk1.img"
+    v_packman="apt"
+    v_packman_del="purge"
+    v_os_variant="linux"
+    v_user=${v_user:-ubuntu}
+    ;;
+  ubuntu18)
+    v_net_link="http://cloud-images.ubuntu.com/bionic/current/bionic-server-cloudimg-amd64.img"
+    v_packman="apt"
+    v_packman_del="purge"
+    v_os_variant="linux"
+    v_user=${v_user:-ubuntu}
+    ;;
+  ubuntu20)
+    v_net_link="http://cloud-images.ubuntu.com/focal/current/focal-server-cloudimg-amd64.img"
+    v_packman="apt"
+    v_packman_del="purge"
+    v_os_variant="linux"
+    v_user=${v_user:-ubuntu}
+    ;;
+  *) echo "Unknown v_os" && exit_installer ;;
+esac
+
+v_iso_path="/var/lib/libvirt/boot/${v_net_link##*/}"
+v_iso_format=${v_net_link##*.}
+
+v_cpu=${v_cpu:-6}
+v_ram_mb=${v_ram_mb:-10240}
+v_hdd_add_gb=${v_hdd_add_gb:-60}
+
+v_user_pubkey_type=${v_user_pubkey/ssh-/}; v_user_pubkey_type=${v_user_pubkey_type%%\ *}; v_user_pubkey_type=${v_user_pubkey_type:-ed25519}
+nw_name_1=${nw_name_1:-default}
+v_timezone=${v_timezone:-Europe/Moscow}
+
+[ ! -f "${v_iso_path}" ] && wget ${v_net_link} -O ${v_iso_path}
+
+for i in {1..9}; do
+  net=$(eval echo "\$nw_name_${i}")
+  mac=$(eval echo "\$nw_mac_${i}")
+  ip=$(eval echo "\$nw_ipaddr_${i}")
+  if [ -n "${net}" ]; then
+    if [[ -n "$(virsh net-dumpxml ${net} | grep dhcp)" ]]; then
+      if [[ -z "$(virsh net-dumpxml ${net} | grep "${mac}")" ]]; then
+        virsh net-update ${net} add-last ip-dhcp-host "<host mac='${mac}' name='${v_hostname}' ip='${ip}' />" --live --config
+      fi
+    fi
+  fi
+done
+
+mkdir /var/lib/libvirt/images/${v_hostname}
+
+cat <<EOF > /var/lib/libvirt/images/${v_hostname}/meta-data
+instance-id: ${v_hostname}${v_worknet:+.}${v_worknet}
+local-hostname: ${v_hostname}${v_worknet:+.}${v_worknet}
+EOF
+
+cat <<EOF > /var/lib/libvirt/images/${v_hostname}/user-data
+preserve_hostname: False
+hostname: ${v_hostname}
+fqdn: ${v_hostname}${v_worknet:+.}${v_worknet}
+
+users:
+    - default
+    - name: ${v_user}
+      groups: ['wheel']
+      shell: /bin/bash
+      sudo: ALL=(ALL) NOPASSWD:ALL
+      ${v_user_pubkey:+ssh-authorized-keys:}
+        ${v_user_pubkey:+-} ${v_user_pubkey}
+
+output:
+  all: ">> /var/log/cloud-init.log"
+
+ssh_genkeytypes: ['${v_user_pubkey_type}', 'rsa']
+
+${v_user_pubkey:+ssh_authorized_keys:}
+  ${v_user_pubkey:+- }${v_user_pubkey}
+
+timezone: ${v_timezone}
+
+runcmd:
+  - systemctl stop network && systemctl start network
+  - ${v_packman} -y ${v_packman_del} cloud-init
+  - sed -i.orig 's/^SELINUX=enforcing/SELINUX=disabled/g' /etc/selinux/config
+  ${v_packages:+- ${v_packman} -y install} ${v_packages}
+  - reboot
+EOF
+
+cp -v ${v_iso_path} /var/lib/libvirt/images/${v_hostname}/${v_hostname}.${v_iso_format}
+qemu-img resize /var/lib/libvirt/images/${v_hostname}/${v_hostname}.${v_iso_format} +${v_hdd_add_gb}G
+
+mkisofs -o /var/lib/libvirt/images/${v_hostname}/${v_hostname}-cidata.iso -V cidata -J -r /var/lib/libvirt/images/${v_hostname}/user-data /var/lib/libvirt/images/${v_hostname}/meta-data
+
+[[ -z $(virsh pool-list | awk '{print $1}' | grep "${v_hostname}") ]] && virsh pool-create-as --name ${v_hostname} --type dir --target /var/lib/libvirt/images/${v_hostname}
+
+virt-install --import -n ${v_hostname} \
+--memory ${v_ram_mb} --vcpus ${v_cpu} --cpu host-passthrough \
+--disk /var/lib/libvirt/images/${v_hostname}/${v_hostname}.${v_iso_format},format=${v_iso_format},bus=virtio \
+--disk /var/lib/libvirt/images/${v_hostname}/${v_hostname}-cidata.iso,device=cdrom \
+$(for i in {1..9}; do net=$(eval echo "\$nw_name_${i}"); mac=$(eval echo "\$nw_mac_${i}"); if [[ -n "$net" ]]; then echo " --network network=${net},model=virtio${mac:+,mac=}${mac}"; fi;done) \
+--os-type=linux \
+--os-variant=${v_os_variant} \
+--graphics none --noautoconsole
+
+virsh change-media ${v_hostname} hda --eject --config
+
+virsh dumpxml ${v_hostname} > /var/lib/libvirt/images/${v_hostname}/${v_hostname}.xml
+
+[ ! -z "${nw_ipaddr_1}" ] && ssh-keygen -f ~/.ssh/known_hosts -R "${nw_ipaddr_1}"
+
+for i in {1..9}; do ip=$(eval echo "\$nw_ipaddr_${i}"); if [[ -n "$ip" ]]; then echo "ssh ${v_user}@${ip}"; fi;done
+
+exit_installer

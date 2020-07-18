@@ -1,0 +1,16 @@
+#!/bin/bash
+
+set -e
+
+[ -z "$@" ] && exit 0
+[ ! -f nw_conf/"$1" ] && exit 0
+
+mydir="$(dirname "$0")"
+nw_name=$(awk -F '[<>]' '/name/{print $3}' ${mydir}/nw_conf/"$1")
+
+virsh net-define ${mydir}/nw_conf/"$1"
+virsh net-autostart ${nw_name}
+virsh net-start ${nw_name}
+
+unset nw_name
+
