@@ -1,20 +1,23 @@
 #!/bin/bash
 set -e
 
+mydir="$(dirname "$0")"
 [ -z "$@" ] && exit 0
-[ ! -f vm_conf/"$1" ] && exit 0
+[ ! -f "${mydir}"/vm_conf/"$1" ] && exit 0
 
 function exit_installer {
   for key in $( set | awk '/^nw_/ {print $1}'| cut -d"=" -f1 ); do unset $key ; done
   for key in $( set | awk '/^v_/ {print $1}'| cut -d"=" -f1 ); do unset $key ; done
+  [ ! -z "$1" ] && echo -e "\033[1;34mError!\n${1}\033[0m"
   exit 0
 }
 
-source vm_conf/$1
+source "${mydir}"/vm_conf/"$1"
 
-[ -z "${v_os}" ] && exit_installer
-[ -z "${v_hostname}" ] && exit_installer
-[ -d "/var/lib/libvirt/images/${v_hostname}" ] && exit_installer
+[ -z "${v_os}" ] && exit_installer "v_os is undefined"
+[ -z "${v_hostname}" ] && exit_installer "v_hostname is undefined"
+[ ! -w "/var/lib/libvirt/images" ] && exit_installer "The current user does not have sufficient permissions.\nTry running the script via sudo\n\nsudo bash $0 $1"
+[ -d "/var/lib/libvirt/images/${v_hostname}" ] && exit_installer "Directory /var/lib/libvirt/images/${v_hostname} is exist. Type\nrm -rf /var/lib/libvirt/images/${v_hostname}\nand start script again"
 
 case ${v_os} in
   centos7)
@@ -52,7 +55,7 @@ case ${v_os} in
     v_os_variant="linux"
     v_user=${v_user:-ubuntu}
     ;;
-  *) echo "Unknown v_os" && exit_installer ;;
+  *) exit_installer "v_os \"${v_os}\" is unknown" ;;
 esac
 
 v_iso_path="/var/lib/libvirt/boot/${v_net_link##*/}"
