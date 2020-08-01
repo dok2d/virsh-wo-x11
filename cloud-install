@@ -15,9 +15,6 @@ function exit_installer {
 source "${mydir}"/vm_conf/"$1"
 
 [ -z "${v_os}" ] && exit_installer "v_os is undefined"
-[ -z "${v_hostname}" ] && exit_installer "v_hostname is undefined"
-[ ! -w "/var/lib/libvirt/images" ] && exit_installer "The current user does not have sufficient permissions.\nTry running the script via sudo\n\nsudo bash $0 $1"
-[ -d "/var/lib/libvirt/images/${v_hostname}" ] && exit_installer "Directory /var/lib/libvirt/images/${v_hostname} is exist. Type\nrm -rf /var/lib/libvirt/images/${v_hostname}\nand start script again"
 
 case ${v_os} in
   centos7)
@@ -57,6 +54,10 @@ case ${v_os} in
     ;;
   *) exit_installer "v_os \"${v_os}\" is unknown" ;;
 esac
+
+[ -z "${v_hostname}" ] && exit_installer "v_hostname is undefined"
+[ ! -w "/var/lib/libvirt/images" ] && exit_installer "The current user does not have sufficient permissions.\nTry running the script via sudo\n\nsudo bash $0 $1"
+[ -d "/var/lib/libvirt/images/${v_hostname}" ] && exit_installer "Directory /var/lib/libvirt/images/${v_hostname} is exist. Type\nrm -rf /var/lib/libvirt/images/${v_hostname}\nand start script again"
 
 v_iso_path="/var/lib/libvirt/boot/${v_net_link##*/}"
 v_iso_format=${v_net_link##*.}
