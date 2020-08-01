@@ -2,8 +2,6 @@
 set -e
 
 mydir="$(dirname "$0")"
-[ -z "$@" ] && exit 0
-[ ! -f "${mydir}"/vm_conf/"$1" ] && exit 0
 
 function exit_installer {
   for key in $( set | awk '/^nw_/ {print $1}'| cut -d"=" -f1 ); do unset $key ; done
@@ -11,6 +9,14 @@ function exit_installer {
   [ ! -z "$1" ] && echo -e "\033[1;34mError!\n${1}\033[0m"
   exit 0
 }
+
+if [ "$1" == "--list" ]; then
+  ls -1 "${mydir}/vm_conf"
+  exit_installer
+fi
+
+[ -z "$@" ] && exit_installer "The configuration file was omitted. You can view the available files using\nbash $0 --list"
+[ ! -f "${mydir}"/vm_conf/"$1" ] && exit_installer "There is no configuration file named $1"
 
 source "${mydir}"/vm_conf/"$1"
 
