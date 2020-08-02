@@ -3,7 +3,7 @@ export v_os=ubuntu16
 export v_worknet=
 export v_hdd_add_gb=
 export v_ram_mb=
-export v_cpu=4
+export v_cpu=
 export v_timezone=
 export v_packages="nano tree git curl"
 

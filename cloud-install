@@ -68,13 +68,14 @@ esac
 v_iso_path="/var/lib/libvirt/boot/${v_net_link##*/}"
 v_iso_format=${v_net_link##*.}
 
-v_cpu=${v_cpu:-6}
-v_ram_mb=${v_ram_mb:-10240}
-v_hdd_add_gb=${v_hdd_add_gb:-60}
+v_cpu=${v_cpu:-2}
+v_ram_mb=${v_ram_mb:-4096}
+v_hdd_add_gb=${v_hdd_add_gb:-20}
 
 v_user_pubkey_type=${v_user_pubkey/ssh-/}; v_user_pubkey_type=${v_user_pubkey_type%%\ *}; v_user_pubkey_type=${v_user_pubkey_type:-ed25519}
 nw_name_1=${nw_name_1:-default}
 nw_mac_1=${nw_mac_1:-$(tr -dc A-F0-9 < /dev/urandom | head -c 6 | sed -r 's/(..)/\1:/g;s/:$//;s/^/52:54:00:/')}
+[ -f "/etc/timezone" ] && v_timezone=${v_timezone:-$(cat /etc/timezone)}
 v_timezone=${v_timezone:-Europe/Moscow}
 
 [ ! -f "${v_iso_path}" ] && wget ${v_net_link} -O ${v_iso_path}
@@ -140,7 +141,7 @@ mkisofs -o /var/lib/libvirt/images/${v_hostname}/${v_hostname}-cidata.iso -V cid
 [[ -z $(virsh pool-list | awk '{print $1}' | grep "${v_hostname}") ]] && virsh pool-create-as --name ${v_hostname} --type dir --target /var/lib/libvirt/images/${v_hostname}
 
 virt-install --import -n ${v_hostname} \
---memory ${v_ram_mb} --vcpus ${v_cpu} --cpu host-passthrough \
+--memory ${v_ram_mb} --vcpus ${v_cpu} --cpu host-model \
 --disk /var/lib/libvirt/images/${v_hostname}/${v_hostname}.${v_iso_format},format=${v_iso_format},bus=virtio \
 --disk /var/lib/libvirt/images/${v_hostname}/${v_hostname}-cidata.iso,device=cdrom \
 $(for i in {1..9}; do net=$(eval echo "\$nw_name_${i}"); mac=$(eval echo "\$nw_mac_${i}"); if [[ -n "$net" ]]; then echo " --network network=${net},model=virtio${mac:+,mac=}${mac}"; fi;done) \
@@ -152,7 +153,7 @@ virsh change-media ${v_hostname} hda --eject --config
 
 virsh dumpxml ${v_hostname} > /var/lib/libvirt/images/${v_hostname}/${v_hostname}.xml
 
-[ ! -z "${nw_ipaddr_1}" ] && ssh-keygen -f ~/.ssh/known_hosts -R "${nw_ipaddr_1}"
+[ ! -z "${nw_ipaddr_1}" ] && grep "${nw_ipaddr_1}" ~/.ssh/known_hosts && ssh-keygen -f ~/.ssh/known_hosts -R "${nw_ipaddr_1}"
 
 for i in {1..9}; do ip=$(eval echo "\$nw_ipaddr_${i}"); if [[ -n "$ip" ]]; then echo "ssh ${v_user}@${ip}"; fi;done
 
