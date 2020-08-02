@@ -76,6 +76,7 @@ nw_name_1=${nw_name_1:-default}
 nw_mac_1=${nw_mac_1:-$(tr -dc A-F0-9 < /dev/urandom | head -c 6 | sed -r 's/(..)/\1:/g;s/:$//;s/^/52:54:00:/')}
 [ -f "/etc/timezone" ] && v_timezone=${v_timezone:-$(cat /etc/timezone)}
 v_timezone=${v_timezone:-Europe/Moscow}
+[ ! -f "/usr/share/zoneinfo/${v_timezone}" ] && exit_installer err "v_timezone \"${v_timezone}\" is incorrect."
 
 [ ! -f "${v_iso_path}" ] && wget ${v_net_link} -O ${v_iso_path}
 
