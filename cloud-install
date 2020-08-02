@@ -7,7 +7,8 @@ function exit_installer {
   for key in $( set | awk -F "=" '/^nw_/ {print $1}' ); do unset $key ; done
   for key in $( set | awk -F "=" '/^v_/  {print $1}' ); do unset $key ; done
   case $1 in
-    err)  shift; echo -e "\033[1;34mError!\n${@}\033[0m" ;;
+    err)  shift; echo -e "\033[1;33mError!\n${@}\033[0m" ;;
+    warn) shift; echo -e "\033[1;34mError!\n${@}\033[0m";;
     info) shift; echo -e "$@" ;;
   esac
   exit 0
@@ -76,7 +77,7 @@ nw_name_1=${nw_name_1:-default}
 nw_mac_1=${nw_mac_1:-$(tr -dc A-F0-9 < /dev/urandom | head -c 6 | sed -r 's/(..)/\1:/g;s/:$//;s/^/52:54:00:/')}
 [ -f "/etc/timezone" ] && v_timezone=${v_timezone:-$(cat /etc/timezone)}
 v_timezone=${v_timezone:-Europe/Moscow}
-[ ! -f "/usr/share/zoneinfo/${v_timezone}" ] && exit_installer err "v_timezone \"${v_timezone}\" is incorrect."
+[ ! -f "/usr/share/zoneinfo/${v_timezone}" ] && exit_installer warn "The \"${v_timezone}\" timezone is not present in the hypervisor."
 
 [ ! -f "${v_iso_path}" ] && wget ${v_net_link} -O ${v_iso_path}
 
