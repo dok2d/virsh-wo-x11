@@ -4,11 +4,11 @@ set -e
 mydir="$(dirname "$0")"
 
 function exit_installer {
-  for key in $( set | awk '/^nw_/ {print $1}'| cut -d"=" -f1 ); do unset $key ; done
-  for key in $( set | awk '/^v_/ {print $1}'| cut -d"=" -f1 ); do unset $key ; done
+  for key in $( set | awk -F "=" '/^nw_/ {print $1}' ); do unset $key ; done
+  for key in $( set | awk -F "=" '/^v_/  {print $1}' ); do unset $key ; done
   case $1 in
-    err)  shift; echo -e "\033[1;34mError!\n${1}\033[0m" ;;
-    info) shift; echo -e "$1" ;;
+    err)  shift; echo -e "\033[1;34mError!\n${@}\033[0m" ;;
+    info) shift; echo -e "$@" ;;
   esac
   exit 0
 }
@@ -61,7 +61,7 @@ case ${v_os} in
 esac
 
 [ -z "${v_hostname}" ] && exit_installer err "v_hostname is undefined"
-[ ! -w "/var/lib/libvirt/images" ] && exit_installer err "The current user does not have sufficient permissions.\nTry running the script via sudo\n\nsudo bash $0 $1"
+[ ! -w "/var/lib/libvirt/images" ] && exit_installer err "The current user does not have sufficient permissions.\nTry running the script via sudo\nsudo bash $0 $1"
 [ -d "/var/lib/libvirt/images/${v_hostname}" ] && exit_installer err "Directory /var/lib/libvirt/images/${v_hostname} is exist. Type\nrm -rf /var/lib/libvirt/images/${v_hostname}\nand start script again"
 
 v_iso_path="/var/lib/libvirt/boot/${v_net_link##*/}"

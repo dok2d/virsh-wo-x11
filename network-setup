@@ -4,23 +4,26 @@ set -e
 mydir="$(dirname "$0")"
 
 function exit_setup {
-  for key in $( set | awk '/^nw_/ {print $1}'| cut -d"=" -f1 ); do unset $key ; done
-  for key in $( set | awk '/^v_/ {print $1}'| cut -d"=" -f1 ); do unset $key ; done
-  [ ! -z "$1" ] && echo -e "\033[1;34mError!\n${1}\033[0m"
+  unset mydir
+  for key in $( set | awk -F "=" '/^nw_/ {print $1}' ); do unset $key ; done
+  for key in $( set | awk -F "=" '/^v_/  {print $1}' ); do unset $key ; done
+  case $1 in
+    err)  shift; echo -e "\033[1;34mError!\n${1}\033[0m" ;;
+    info) shift; echo -e "$1" ;;
+  esac
   exit 0
 }
 
-[ -z "$@" ] && exit_setup "Config-file is not selected"
-[ ! -f "${mydir}"/nw_conf/"$1" ] && exit_setup "Config-file "${mydir}"/nw_conf/"$1" not exists"
+[ -z "$@" ] && exit_setup err "Config-file is not selected"
+[ ! -f "${mydir}"/nw_conf/"$1" ] && exit_setup err "Config-file "${mydir}"/nw_conf/"$1" not exists"
 
 nw_name=$(awk -F '[<>]' '/name/{print $3}' "${mydir}"/nw_conf/"$1")
 
-[ -z "${nw_name}" ] && exit_setup "Network name is undefined"
-[ "${nw_name}" == "$(virsh net-list --all | tail -n +3 | awk '{print $1}' | grep ${nw_name})" ] && exit_setup "Virtual network ${nw_name} is alrady exists"
+[ -z "${nw_name}" ] && exit_setup err "Network name is undefined"
+[ "${nw_name}" == "$(virsh net-list --all | tail -n +3 | awk '{print $1}' | grep ${nw_name})" ] && exit_setup err "Virtual network ${nw_name} is alrady exists"
 
 virsh net-define ${mydir}/nw_conf/"$1"
 virsh net-autostart ${nw_name}
 virsh net-start ${nw_name}
 
-unset nw_name mydir
-
+exit_setup
