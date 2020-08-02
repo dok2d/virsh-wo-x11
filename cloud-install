@@ -6,21 +6,20 @@ mydir="$(dirname "$0")"
 function exit_installer {
   for key in $( set | awk '/^nw_/ {print $1}'| cut -d"=" -f1 ); do unset $key ; done
   for key in $( set | awk '/^v_/ {print $1}'| cut -d"=" -f1 ); do unset $key ; done
-  [ ! -z "$1" ] && echo -e "\033[1;34mError!\n${1}\033[0m"
+  case $1 in
+    err)  shift; echo -e "\033[1;34mError!\n${1}\033[0m" ;;
+    info) shift; echo -e "$1" ;;
+  esac
   exit 0
 }
 
-if [ "$1" == "--list" ]; then
-  ls -1 "${mydir}/vm_conf"
-  exit_installer
-fi
-
-[ -z "$@" ] && exit_installer "The configuration file was omitted. You can view the available files using\nbash $0 --list"
-[ ! -f "${mydir}"/vm_conf/"$1" ] && exit_installer "There is no configuration file named $1"
+[ -z "$@" ] && exit_installer err "The configuration file was omitted. You can view the available files using\nbash $0 --list"
+[ "$1" == "--list" ] && exit_installer info "$(ls -1 "${mydir}/vm_conf")"
+[ ! -f "${mydir}"/vm_conf/"$1" ] && exit_installer err "There is no configuration file named $1"
 
 source "${mydir}"/vm_conf/"$1"
 
-[ -z "${v_os}" ] && exit_installer "v_os is undefined"
+[ -z "${v_os}" ] && exit_installer err "v_os is undefined"
 
 case ${v_os} in
   centos7)
@@ -58,12 +57,12 @@ case ${v_os} in
     v_os_variant="linux"
     v_user=${v_user:-ubuntu}
     ;;
-  *) exit_installer "v_os \"${v_os}\" is unknown" ;;
+  *) exit_installer err "v_os \"${v_os}\" is unknown" ;;
 esac
 
-[ -z "${v_hostname}" ] && exit_installer "v_hostname is undefined"
-[ ! -w "/var/lib/libvirt/images" ] && exit_installer "The current user does not have sufficient permissions.\nTry running the script via sudo\n\nsudo bash $0 $1"
-[ -d "/var/lib/libvirt/images/${v_hostname}" ] && exit_installer "Directory /var/lib/libvirt/images/${v_hostname} is exist. Type\nrm -rf /var/lib/libvirt/images/${v_hostname}\nand start script again"
+[ -z "${v_hostname}" ] && exit_installer err "v_hostname is undefined"
+[ ! -w "/var/lib/libvirt/images" ] && exit_installer err "The current user does not have sufficient permissions.\nTry running the script via sudo\n\nsudo bash $0 $1"
+[ -d "/var/lib/libvirt/images/${v_hostname}" ] && exit_installer err "Directory /var/lib/libvirt/images/${v_hostname} is exist. Type\nrm -rf /var/lib/libvirt/images/${v_hostname}\nand start script again"
 
 v_iso_path="/var/lib/libvirt/boot/${v_net_link##*/}"
 v_iso_format=${v_net_link##*.}
